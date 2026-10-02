@@ -76,7 +76,8 @@ export function bindGuardForm(root, repo) {
     toast(`Added the ${t.label} template. Review it, then save.`);
   });
   val('suggest').addEventListener('click', async (e) => {
-    e.target.disabled = true;
+    const btn = e.currentTarget;
+    btn.disabled = true;
     val('suggestions').innerHTML = '<div class="muted" style="margin-top:8px"><span class="spinner"></span> Looking for sensitive files…</div>';
     try {
       const { suggestions } = await api('/api/guard/suggest', { method: 'POST', body: { repo } });
@@ -93,7 +94,7 @@ export function bindGuardForm(root, repo) {
     } catch (err) {
       val('suggestions').innerHTML = `<div class="banner bad" style="margin-top:8px">${esc(err.message)}</div>`;
     }
-    e.target.disabled = false;
+    btn.disabled = false;
   });
   // Forgetting updates the list in place so unsaved edits elsewhere in the
   // form survive; items are identified by path and title, not position.

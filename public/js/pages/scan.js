@@ -1,6 +1,6 @@
 // Scan & audit: pick parts of a codebase and read every line.
 
-import { $, $$, view, esc, api, toast, I, icon, SEVS, MODELS, EFFORTS, FOCUS_LABELS, S, savePrefs, keepScroll, selectRepo, toolsMissingBanner, plural, kfmt, confirmDialog } from '../core.js';
+import { $, view, esc, api, toast, I, MODELS, EFFORTS, S, savePrefs, keepScroll, toolsMissingBanner } from '../core.js';
 import { openRepoPicker } from '../repo-picker.js';
 import { openGuardrails } from '../guardrails.js';
 
@@ -46,7 +46,7 @@ export async function loadScanFiles(force = false) {
 }
 
 function topDirs(files) {
-  return [...new Set(files.map((f) => f.path.split('/')[0]).filter((d, i, a) => files.some((f) => f.path.startsWith(d + '/'))))];
+  return [...new Set(files.filter((f) => f.path.includes('/')).map((f) => f.path.split('/')[0]))];
 }
 
 export function buildTree(files) {

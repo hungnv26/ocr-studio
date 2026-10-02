@@ -192,14 +192,17 @@ export function renderActivityTab() {
 export function renderCompareTab() {
   const c = RV.compare;
   if (!c) {
-    api(`/api/reviews/${RV.job.id}/compare`)
-      .then((r) => {
+    const jobId = RV.job.id;
+    if (RV._loadingCompare === jobId) return `<div class="row muted"><span class="spinner"></span> Comparing with the original review…</div>`;
+    RV._loadingCompare = jobId;
+    api(`/api/reviews/${jobId}/compare`)
+      .then((r) => ({ r }), (err) => ({ r: { error: err.message } }))
+      .then(({ r }) => {
+        if (RV._loadingCompare === jobId) RV._loadingCompare = null;
+        // The reviewer may have moved to another review meanwhile.
+        if (RV.job?.id !== jobId) return;
         RV.compare = r;
         if (RV.tab === 'compare') render();
-      })
-      .catch((err) => {
-        RV.compare = { error: err.message };
-        render();
       });
     return `<div class="row muted"><span class="spinner"></span> Comparing with the original review…</div>`;
   }

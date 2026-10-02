@@ -42,7 +42,12 @@ export async function openRepoPicker(onChosen) {
     $('#rp-browse', back).addEventListener('click', () => browse(S.health?.home));
   };
   const browse = async (dir) => {
-    const d = await api(`/api/fs/list?path=${encodeURIComponent(dir || '')}`);
+    let d;
+    try {
+      d = await api(`/api/fs/list?path=${encodeURIComponent(dir || '')}`);
+    } catch (err) {
+      return toast(err.message, true);
+    }
     $('#rp-body', back).innerHTML = `
       <div class="row" style="margin-bottom:8px">
         <button class="btn small" id="rp-up" ${d.parent ? '' : 'disabled'}>↑ Up</button>
@@ -54,7 +59,7 @@ export async function openRepoPicker(onChosen) {
         .map((x) => `<div class="repo-item" data-dir="${esc(x.path)}" data-repo="${x.isRepo ? 1 : ''}">${(x.isRepo ? I.git : I.folder).replace('<svg', '<svg width="16" height="16"')}<div class="grow">${esc(x.name)}</div>${x.isRepo ? '<span class="pill ok">git repo</span>' : ''}</div>`)
         .join('') || '<div class="faint">No sub-folders</div>'}</div>`;
     $('#rp-up', back).addEventListener('click', () => browse(d.parent));
-    $('#rp-back', back).addEventListener('click', showList);
+    $('#rp-back', back).addEventListener('click', () => showList().catch((err) => toast(err.message, true)));
     $('#rp-this', back)?.addEventListener('click', () => choose(d.path));
     back.querySelectorAll('[data-dir]').forEach((el) => el.addEventListener('click', () => (el.dataset.repo ? choose(el.dataset.dir) : browse(el.dataset.dir))));
   };

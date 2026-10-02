@@ -1,7 +1,6 @@
 // Setup & settings: tools, editor, appearance and review defaults.
 
-import { $, view, api, esc, toast, I, icon, md, S, selectRepo, loadHealth, renderSideStatus, pref, setPref, applyLook } from '../core.js';
-import { openRepoPicker } from '../repo-picker.js';
+import { $, view, api, esc, toast, I, icon, S, loadHealth, renderSideStatus, pref, setPref, applyLook } from '../core.js';
 
 export async function pageSettings() {
   await loadHealth();
@@ -38,7 +37,7 @@ export async function pageSettings() {
       <h2 class="section-title">${icon('open', 18)} Editor</h2>
       <p class="section-sub">Where “Open” sends a file. “Automatic” uses Xcode for Swift/Objective-C and Android Studio or IntelliJ for Java/Kotlin when they're installed, otherwise your first editor.</p>
       <div class="row wrap"><select id="editor"><option value="auto">Automatic</option>${(S.editors || [])
-        .map((e) => `<option value="${e.id}" ${s.editor === e.id ? 'selected' : ''}>${esc(e.name)}${e.cli ? '' : e.app ? ' (app)' : ''}</option>`)
+        .map((e) => `<option value="${esc(e.id)}" ${s.editor === e.id ? 'selected' : ''}>${esc(e.name)}${e.cli ? '' : e.app ? ' (app)' : ''}</option>`)
         .join('')}</select><button class="btn" id="save-editor">Save</button><span class="faint">Detected: ${(S.editors || []).filter((e) => e.id !== 'system').map((e) => esc(e.name)).join(', ') || 'none'}</span></div>
     </div>
 

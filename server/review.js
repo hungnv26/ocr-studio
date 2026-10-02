@@ -423,6 +423,8 @@ function spawnClaude(job, args, prompt, onEvent) {
     let buf = '';
     let stderr = '';
     let result = null;
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
     child.stdout.on('data', (d) => {
       buf += d;
       let i;
@@ -673,6 +675,8 @@ async function runOcrNative(job) {
     job._children.add(child);
     let stdout = '';
     let errBuf = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
     child.stdout.on('data', (d) => (stdout += d));
     child.stderr.on('data', (d) => {
       errBuf += d;
@@ -1246,6 +1250,11 @@ Question: ${q}`;
     entry.status = result && !result.is_error ? 'done' : 'failed';
     if (entry.status === 'failed') entry.a = entry.a || (error || 'No answer').slice(0, 600);
     touch(job, { save: true });
+  }).catch((err) => {
+    console.error('askFinding failed:', err);
+    entry.status = 'failed';
+    entry.a = entry.a || String(err?.message || err).slice(0, 600);
+    touch(job);
   });
   return entry;
 }

@@ -90,11 +90,11 @@ function serveStatic(req, res, pathname) {
   if (missing) {
     // Client-side routes (#/...) all land on the shell.
     res.writeHead(200, { 'content-type': MIME['.html'] });
-    fs.createReadStream(path.join(PUBLIC_DIR, 'index.html')).pipe(res);
+    fs.createReadStream(path.join(PUBLIC_DIR, 'index.html')).on('error', () => res.destroy()).pipe(res);
     return;
   }
   res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream', 'cache-control': vendor ? 'max-age=86400' : 'no-cache' });
-  fs.createReadStream(file).pipe(res);
+  fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
 }
 
 // Refs and paths become positional git/ocr arguments, so a value starting with
@@ -509,7 +509,13 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(403).end('forbidden host');
     return;
   }
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  let url;
+  try {
+    url = new URL(req.url, `http://${req.headers.host}`);
+  } catch {
+    res.writeHead(400).end('bad request');
+    return;
+  }
   const { pathname } = url;
 
   if (!pathname.startsWith('/api/')) return serveStatic(req, res, pathname);

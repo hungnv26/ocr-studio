@@ -21,6 +21,9 @@ export function run(cmd, args, { cwd, input, timeoutMs = 60_000, env } = {}) {
       return;
     }
     const timer = setTimeout(() => child.kill('SIGTERM'), timeoutMs);
+    // Decode as a stream so a multi-byte character split across chunks survives.
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
     child.stdout.on('data', (d) => (stdout += d));
     child.stderr.on('data', (d) => (stderr += d));
     child.on('error', (err) => {
