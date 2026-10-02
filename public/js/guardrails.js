@@ -49,7 +49,7 @@ export function guardForm(g, tpl) {
           ? `<div class="learned">${learned
               .map(
                 (l, i) => `<div class="learned-item"><div class="grow"><b>${esc(l.title)}</b> <span class="faint mono">${esc(l.path)}</span><div class="muted">${esc(l.reason)}</div></div>
-                  <span class="faint" style="white-space:nowrap">${ago(l.at)}</span><button class="btn small ghost" data-unlearn="${i}" title="Let the reviewer report this again">Forget</button></div>`
+                  <span class="faint" style="white-space:nowrap">${ago(l.at)}</span><button class="btn small ghost" data-unlearn="${i}" data-path="${esc(l.path)}" data-title="${esc(l.title)}" title="Let the reviewer report this again">Forget</button></div>`
               )
               .join('')}</div>`
           : '<div class="help">When you ignore a finding with a reason and “remember”, it shows up here and future reviews stop reporting it.</div>'
@@ -58,11 +58,17 @@ export function guardForm(g, tpl) {
   </div>`;
 }
 
-export function bindGuardForm(root, repo, g, onChange) {
+export function bindGuardForm(root, repo) {
   const val = (k) => $(`[data-g="${k}"]`, root);
   const merge = (lines, add) => [...new Set([...lines.split('\n').map((s) => s.trim()).filter(Boolean), ...add])].join('\n');
   val('template').addEventListener('change', async (e) => {
-    const t = (await templates())[e.target.value];
+    let t;
+    try {
+      t = (await templates())[e.target.value];
+    } catch (err) {
+      e.target.value = '';
+      return toast(err.message, true);
+    }
     if (!t) return;
     val('protected').value = merge(val('protected').value, t.protected);
     val('notes').value = [val('notes').value.trim(), t.notes].filter(Boolean).join('\n');
@@ -89,11 +95,22 @@ export function bindGuardForm(root, repo, g, onChange) {
     }
     e.target.disabled = false;
   });
+  // Forgetting updates the list in place so unsaved edits elsewhere in the
+  // form survive; items are identified by path and title, not position.
   root.querySelectorAll('[data-unlearn]').forEach((b) =>
     b.addEventListener('click', async () => {
-      await api('/api/guard/learned/remove', { method: 'POST', body: { repo, index: Number(b.dataset.unlearn) } });
-      toast('Forgotten. The reviewer may report it again.');
-      onChange?.();
+      b.disabled = true;
+      try {
+        await api('/api/guard/learned/remove', { method: 'POST', body: { repo, path: b.dataset.path, title: b.dataset.title } });
+        const item = b.closest('.learned-item');
+        const list = item.parentElement;
+        item.remove();
+        if (!list.children.length) list.outerHTML = '<div class="help">Nothing dismissed any more.</div>';
+        toast('Forgotten. The reviewer may report it again.');
+      } catch (err) {
+        b.disabled = false;
+        toast(err.message, true);
+      }
     })
   );
   return async function save() {
@@ -126,7 +143,7 @@ export async function openGuardrails(repo, onSaved) {
       ${guardForm(g, tpl)}
       <div class="modal-actions"><button class="btn ghost" data-x>Cancel</button><button class="btn primary" data-save>Save guardrails</button></div>`,
     (root, close) => {
-      const save = bindGuardForm(root, repo, g, () => close());
+      const save = bindGuardForm(root, repo);
       root.querySelectorAll('[data-x]').forEach((b) => b.addEventListener('click', () => close()));
       root.querySelector('[data-save]').addEventListener('click', async () => {
         try {

@@ -335,7 +335,11 @@ async function onClick(e) {
   if (ru) return undoBatch(ru.dataset.roundUndo);
   const rc = el('[data-round-check]');
   if (rc) {
-    await api(`/api/reviews/${j.id}/rounds/${rc.dataset.roundCheck}/check`, { method: 'POST' }).catch((err) => toast(err.message, true));
+    try {
+      await api(`/api/reviews/${j.id}/rounds/${rc.dataset.roundCheck}/check`, { method: 'POST' });
+    } catch (err) {
+      return toast(err.message, true);
+    }
     return toast('Running your check command…');
   }
 
@@ -514,8 +518,12 @@ async function globalAction(kind) {
     case 'wizard':
       return proposalWizard();
     case 'cancel-fixes': {
-      const { cancelled } = await api(`/api/reviews/${j.id}/fix/cancel`, { method: 'POST' });
-      toast(`Cancelled ${plural(cancelled, 'waiting fix', 'waiting fixes')}`);
+      try {
+        const { cancelled } = await api(`/api/reviews/${j.id}/fix/cancel`, { method: 'POST' });
+        toast(`Cancelled ${plural(cancelled, 'waiting fix', 'waiting fixes')}`);
+      } catch (err) {
+        toast(err.message, true);
+      }
       return RV.reload();
     }
     case 'show-flagged':
@@ -549,8 +557,13 @@ async function headerAction(kind) {
   const j = RV.job;
   switch (kind) {
     case 'cancel':
-      await api(`/api/reviews/${j.id}/cancel`, { method: 'POST' });
-      return toast('Stopping review…');
+      try {
+        await api(`/api/reviews/${j.id}/cancel`, { method: 'POST' });
+        toast('Stopping review…');
+      } catch (err) {
+        toast(err.message, true);
+      }
+      return;
     case 'guard':
       return openGuardrails(j.repo, async () => {
         RV.guard = await api('/api/guard', { method: 'POST', body: { repo: j.repo } });
@@ -558,8 +571,12 @@ async function headerAction(kind) {
       });
     case 'delete':
       if (!(await confirmDialog({ title: 'Delete this review?', body: 'It is removed from History. Your code and any applied fixes are not touched.', ok: 'Delete', danger: true }))) return;
-      await api(`/api/reviews/${j.id}`, { method: 'DELETE' });
-      location.hash = '#/history';
+      try {
+        await api(`/api/reviews/${j.id}`, { method: 'DELETE' });
+        location.hash = '#/history';
+      } catch (err) {
+        toast(err.message, true);
+      }
       return;
     case 'rerun':
       try {

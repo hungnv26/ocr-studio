@@ -1,6 +1,6 @@
 // Review rules: which OCR checklist applies to a file.
 
-import { $, view, api, esc, toast, I, icon, md, S, selectRepo, loadHealth, renderSideStatus, pref, setPref, applyLook } from '../core.js';
+import { $, view, api, esc, I, md, S, selectRepo } from '../core.js';
 import { openRepoPicker } from '../repo-picker.js';
 
 export async function pageRules() {

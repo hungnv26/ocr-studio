@@ -59,9 +59,9 @@ export function addLearned(repo, entry) {
   return item;
 }
 
-export function removeLearned(repo, index) {
+export function removeLearned(repo, { path: p, title, index } = {}) {
   const g = loadGuard(repo);
-  const learned = (g.learned || []).filter((_, i) => i !== Number(index));
+  const learned = (g.learned || []).filter((l, i) => (p != null ? !(l.path === p && l.title === title) : i !== Number(index)));
   writeJSON(fileFor(repo), { ...g, repo: path.resolve(repo), learned });
   return learned;
 }

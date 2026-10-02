@@ -65,13 +65,16 @@ export function renderChangesTab() {
 export async function loadChanges() {
   if (RV._loadingChanges) return;
   RV._loadingChanges = true;
+  const jobId = RV.job.id;
+  let result;
   try {
-    const [c, git] = await Promise.all([api(`/api/reviews/${RV.job.id}/changes`), api('/api/git/status', { method: 'POST', body: { repo: RV.job.repo } }).catch(() => null)]);
-    RV.changes = { ...c, git };
+    const [c, git] = await Promise.all([api(`/api/reviews/${jobId}/changes`), api('/api/git/status', { method: 'POST', body: { repo: RV.job.repo } }).catch(() => null)]);
+    result = { ...c, git };
   } catch (err) {
-    RV.changes = { error: err.message, files: [], legacy: [] };
+    result = { error: err.message, files: [], legacy: [] };
   }
   RV._loadingChanges = false;
+  if (RV.job?.id === jobId) RV.changes = result;
   if (RV.tab === 'changes') render();
 }
 

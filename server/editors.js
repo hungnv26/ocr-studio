@@ -6,8 +6,8 @@ import { HOME, run } from './util.js';
 // Each editor can be reached through a CLI on PATH, a URL scheme, or the macOS
 // app bundle. Detection only checks that something usable exists.
 const EDITORS = [
-  { id: 'vscode', name: 'VS Code', apps: ['Visual Studio Code'], cli: 'code', open: (p, l, cli) => (cli ? [cli, ['-g', `${p}:${l}`]] : ['open', [`vscode://file${encodeURI(p)}:${l}`]]) },
-  { id: 'cursor', name: 'Cursor', apps: ['Cursor'], cli: 'cursor', open: (p, l, cli) => (cli ? [cli, ['-g', `${p}:${l}`]] : ['open', [`cursor://file${encodeURI(p)}:${l}`]]) },
+  { id: 'vscode', name: 'VS Code', apps: ['Visual Studio Code'], cli: 'code', open: (p, l, cli) => (cli ? [cli, ['-g', `${p}:${l}`]] : ['open', [`vscode://file${encodeURI(p).replace(/[?#]/g, encodeURIComponent)}:${l}`]]) },
+  { id: 'cursor', name: 'Cursor', apps: ['Cursor'], cli: 'cursor', open: (p, l, cli) => (cli ? [cli, ['-g', `${p}:${l}`]] : ['open', [`cursor://file${encodeURI(p).replace(/[?#]/g, encodeURIComponent)}:${l}`]]) },
   { id: 'zed', name: 'Zed', apps: ['Zed'], cli: 'zed', open: (p, l, cli) => (cli ? [cli, [`${p}:${l}`]] : ['open', ['-a', 'Zed', p]]) },
   { id: 'xcode', name: 'Xcode', apps: ['Xcode'], cli: 'xed', open: (p, l, cli) => (cli ? [cli, ['--line', String(l), p]] : ['open', ['-a', 'Xcode', p]]) },
   { id: 'androidstudio', name: 'Android Studio', apps: ['Android Studio'], cli: 'studio', open: (p, l, cli, app) => (cli ? [cli, ['--line', String(l), p]] : ['open', ['-na', app, '--args', '--line', String(l), p]]) },

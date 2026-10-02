@@ -35,8 +35,7 @@ function jobFile(id) {
 
 function persist(job) {
   if (job._deleted) return;
-  const { _children, _timer, _deleted, _fixLocks, ...rest } = job;
-  writeJSON(jobFile(job.id), rest);
+  writeJSON(jobFile(job.id), publicJob(job));
 }
 
 export function getJob(id) {
@@ -49,6 +48,7 @@ export function getJob(id) {
       else if (f.fix?.status === 'running' || f.fix?.status === 'checking') Object.assign(f.fix, { status: 'failed', error: 'Interrupted: OCR Studio was restarted. If the file was edited, use “Undo whole batch”.' });
     }
     for (const f of job?.findings || []) if (['queued', 'running'].includes(f.fix?.audit?.status)) delete f.fix.audit;
+    for (const f of job?.findings || []) for (const t of f.thread || []) if (t.status === 'running') Object.assign(t, { status: 'failed', a: 'Interrupted: OCR Studio was restarted.' });
     for (const r of job?.fixRounds || []) {
       if (r.status === 'running') r.status = 'done';
       if (r.check?.status === 'running') r.check.status = 'interrupted';
@@ -777,7 +777,7 @@ function pumpFixes(job, tools) {
       .finally(() => {
         job._fixLocks.delete(f.path);
         touch(job, { save: true });
-        finishRoundIfDone(job, f.fix.round);
+        finishRoundIfDone(job, f.fix.round).catch((err) => console.error('finishRoundIfDone failed:', err));
         pumpFixes(job, tools);
       });
   }
@@ -1104,7 +1104,7 @@ export async function auditApplied(jobId) {
       touch(job, { save: true });
     }
   };
-  Promise.all(Array.from({ length: Math.min(loadSettings().concurrency, todo.length) }, worker));
+  Promise.all(Array.from({ length: Math.min(loadSettings().concurrency, todo.length) }, worker)).catch((err) => console.error('auditApplied failed:', err));
   return { queued: todo.length };
 }
 
@@ -1136,7 +1136,7 @@ export async function recheckRound(jobId, roundId) {
   const round = job?.fixRounds?.find((r) => r.id === roundId);
   const guard = job && loadGuard(job.repo);
   if (!round || !guard?.checkCommand) throw new Error('Set a check command in this project’s guardrails first');
-  runCheck(job, round, guard.checkCommand);
+  runCheck(job, round, guard.checkCommand).catch((err) => console.error('recheckRound failed:', err));
   return { ok: true };
 }
 

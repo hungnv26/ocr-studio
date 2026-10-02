@@ -27,7 +27,7 @@ const BY_EXT = {
   json: 'json', yml: 'yaml', yaml: 'yaml', sh: 'bash', bash: 'bash', zsh: 'bash', sql: 'sql', md: 'markdown',
   lua: 'lua', r: 'r', pl: 'perl', graphql: 'graphql', gql: 'graphql', toml: 'ini', ini: 'ini', cfg: 'ini',
   xcconfig: 'ini', properties: 'properties', gradle: 'gradle', groovy: 'groovy', dart: 'dart', scala: 'scala',
-  proto: 'protobuf', jsx_: 'javascript',
+  proto: 'protobuf',
 };
 
 export function languageFor(path) {

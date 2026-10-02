@@ -1,6 +1,6 @@
 // Repository picker: recent repos, discovered repos, and a folder browser.
 
-import { $, $$, view, esc, api, toast, I, icon, SEVS, MODELS, EFFORTS, FOCUS_LABELS, S, savePrefs, keepScroll, selectRepo, toolsMissingBanner, plural, kfmt, confirmDialog } from './core.js';
+import { $, esc, api, toast, I, S, selectRepo } from './core.js';
 import { renderNew, refreshPreview } from './pages/start.js';
 
 
@@ -33,10 +33,11 @@ export async function openRepoPicker(onChosen) {
   const showList = async () => {
     const { repos, recent } = await api('/api/repos/discover');
     const home = S.health?.home || '';
+    const tilde = (p) => (home && p.startsWith(home) ? '~' + p.slice(home.length) : p);
     $('#rp-body', back).innerHTML = `
-      ${recent.length ? `<div class="nav-label" style="padding-left:2px">Recent</div><div class="repo-list">${recent.map((p) => item(p, p.replace(home, '~'))).join('')}</div>` : ''}
+      ${recent.length ? `<div class="nav-label" style="padding-left:2px">Recent</div><div class="repo-list">${recent.map((p) => item(p, tilde(p))).join('')}</div>` : ''}
       <div class="row" style="margin-top:8px"><div class="nav-label grow" style="padding-left:2px">Found on this Mac</div><button class="btn small" id="rp-browse">${I.folder} Browse folders…</button></div>
-      <div class="repo-list">${repos.filter((p) => !recent.includes(p)).map((p) => item(p, p.replace(home, '~'))).join('') || '<div class="faint">No repositories found under ~/Projects, ~/Developer or ~/Code.</div>'}</div>`;
+      <div class="repo-list">${repos.filter((p) => !recent.includes(p)).map((p) => item(p, tilde(p))).join('') || '<div class="faint">No repositories found under ~/Projects, ~/Developer or ~/Code.</div>'}</div>`;
     back.querySelectorAll('.repo-item').forEach((el) => el.addEventListener('click', () => choose(el.dataset.p)));
     $('#rp-browse', back).addEventListener('click', () => browse(S.health?.home));
   };

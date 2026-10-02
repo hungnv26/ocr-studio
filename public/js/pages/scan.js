@@ -279,7 +279,8 @@ function bindScan() {
   view.querySelectorAll('[data-dir]').forEach((cb) =>
     cb.addEventListener('change', () => {
       const prefix = cb.dataset.dir + '/';
-      for (const f of SC.files) if (f.path.startsWith(prefix)) cb.checked ? SC.sel.add(f.path) : SC.sel.delete(f.path);
+      const q = SC.filter.trim().toLowerCase();
+      for (const f of SC.files) if (f.path.startsWith(prefix) && (!q || f.path.toLowerCase().includes(q))) cb.checked ? SC.sel.add(f.path) : SC.sel.delete(f.path);
       rerender();
     })
   );

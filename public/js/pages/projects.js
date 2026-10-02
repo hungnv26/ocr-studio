@@ -86,7 +86,7 @@ export async function pageProject(repo) {
       }
     </div>`;
   const root = view.querySelector('[data-guard]');
-  const save = bindGuardForm(root, info.repo, guard, () => pageProject(repo));
+  const save = bindGuardForm(root, info.repo);
   view.querySelector('[data-save]').addEventListener('click', async () => {
     try {
       await save();

@@ -4,17 +4,28 @@ import { view, api, esc, icon, ago, money, kfmt, plural, S, SEVS, sparkline, onL
 import { openRepoPicker } from '../repo-picker.js';
 
 export async function pageDashboard() {
+  let left = false;
+  let pending = false;
   const load = async () => {
     const d = await api('/api/dashboard');
-    render(d);
+    if (!left) render(d);
     return d;
   };
   let d = await load();
   // Keep running jobs fresh without a socket per job.
   const timer = setInterval(async () => {
-    if (d.running.length) d = await load().catch(() => d);
+    if (left || pending || !d.running.length) return;
+    pending = true;
+    try {
+      d = await load().catch(() => d);
+    } finally {
+      pending = false;
+    }
   }, 4000);
-  onLeave(() => clearInterval(timer));
+  onLeave(() => {
+    left = true;
+    clearInterval(timer);
+  });
 }
 
 function render(d) {

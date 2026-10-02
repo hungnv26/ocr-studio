@@ -144,19 +144,26 @@ export async function workingTreeMatches(repo, target) {
 // Files touched by recent commits: a quick way to aim a scan at active code.
 export async function recentFiles(repo, days) {
   const r = await run('git', ['log', `--since=${Number(days) || 30} days ago`, '--name-only', '--pretty=format:'], { cwd: repo, timeoutMs: 30_000 });
-  return [...new Set(r.stdout.split('\n').map((l) => l.trim()).filter(Boolean))];
+  // A file edited and later deleted in the window still appears in older
+  // commits, so keep only paths that exist now.
+  return [...new Set(r.stdout.split('\n').map((l) => l.trim()).filter(Boolean))].filter((f) => fs.existsSync(path.join(repo, f)));
 }
 
 export async function gitStatus(repo) {
   const [branch, status, head] = await Promise.all([
     run('git', ['branch', '--show-current'], { cwd: repo }),
-    run('git', ['status', '--porcelain'], { cwd: repo }),
+    run('git', ['status', '--porcelain', '-z'], { cwd: repo }),
     run('git', ['rev-parse', '--short', 'HEAD'], { cwd: repo }),
   ]);
-  const changed = status.stdout
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => ({ code: l.slice(0, 2), path: l.slice(3).replace(/^"|"$/g, '') }));
+  const changed = [];
+  const entries = status.stdout.split('\0');
+  for (let i = 0; i < entries.length; i++) {
+    const l = entries[i];
+    if (!l) continue;
+    changed.push({ code: l.slice(0, 2), path: l.slice(3) });
+    // Renames and copies are followed by an extra entry holding the old path.
+    if (/[RC]/.test(l.slice(0, 2))) i++;
+  }
   return { branch: branch.stdout.trim() || '(detached)', head: head.stdout.trim(), changed, dirty: changed.length };
 }
 

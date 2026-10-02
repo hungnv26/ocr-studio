@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createBranch, fileContent, fileDiff, gitStatus, parseDiffForView, recentFiles, repoInfo, workingTreeMatches } from './git.js';
+import { commitPaths, createBranch, fileContent, fileDiff, gitStatus, parseDiffForView, recentFiles, repoInfo, workingTreeMatches } from './git.js';
 import { detectEditors, openInEditor } from './editors.js';
 import {
   FOCUS_AREAS,
@@ -426,7 +426,7 @@ function extraRoutes() {
       async (req) => {
         const body = await readBody(req);
         const info = await requireRepo(body.repo);
-        return { learned: removeLearned(info.repo, body.index) };
+        return { learned: removeLearned(info.repo, { path: body.path, title: body.title, index: body.index }) };
       },
     ],
     [
@@ -485,7 +485,6 @@ function extraRoutes() {
       async (req) => {
         const body = await readBody(req);
         const info = await requireRepo(body.repo);
-        const { commitPaths } = await import('./git.js');
         return commitPaths(info.repo, body.message, null);
       },
     ],

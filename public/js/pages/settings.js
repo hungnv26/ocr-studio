@@ -60,12 +60,16 @@ export async function pageSettings() {
         <button class="btn" id="notif">Enable desktop notifications</button></div>
     </div>`;
   const save = async (patch) => {
-    const r = await api('/api/settings', { method: 'POST', body: patch });
-    S.health.settings = r.settings;
-    S.health.tools = r.tools;
-    renderSideStatus();
-    toast('Saved');
-    pageSettings();
+    try {
+      const r = await api('/api/settings', { method: 'POST', body: patch });
+      S.health.settings = r.settings;
+      S.health.tools = r.tools;
+      renderSideStatus();
+      toast('Saved');
+      pageSettings();
+    } catch (err) {
+      toast(err.message, true);
+    }
   };
   $('#save-editor').addEventListener('click', () => save({ editor: $('#editor').value }));
   $('#editor').value = s.editor || 'auto';
@@ -92,11 +96,17 @@ export async function pageSettings() {
   $('#install-ocr').addEventListener('click', async (e) => {
     e.target.disabled = true;
     $('#install-out').innerHTML = '<span class="spinner"></span> Installing…';
-    const r = await api('/api/tools/install-ocr', { method: 'POST' });
-    S.health.tools = r.tools;
-    renderSideStatus();
-    toast(r.ok ? 'OCR CLI installed' : 'Install failed — see output', !r.ok);
-    pageSettings();
+    try {
+      const r = await api('/api/tools/install-ocr', { method: 'POST' });
+      S.health.tools = r.tools;
+      renderSideStatus();
+      toast(r.ok ? 'OCR CLI installed' : 'Install failed — see output', !r.ok);
+      pageSettings();
+    } catch (err) {
+      e.target.disabled = false;
+      $('#install-out').textContent = '';
+      toast(err.message, true);
+    }
   });
 }
 
