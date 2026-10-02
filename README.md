@@ -4,6 +4,8 @@ A local web app for [Open Code Review](https://github.com/alibaba/open-code-revi
 
 > OCR Studio is an independent project. It is not affiliated with or endorsed by Alibaba or Anthropic.
 
+![The OCR Studio review workbench: findings grouped by file on the left, the selected finding with code, suggested change and applied fix on the right](docs/screenshots/workbench.png)
+
 ```
 OCR (deterministic)                Claude Code (judgement)              You
 ──────────────────                 ───────────────────────              ───
@@ -33,6 +35,30 @@ npm start          # opens http://localhost:4317
 On macOS you can also double-click **`OCR Studio.command`**.
 
 Then choose a repository and either **Review changes** (uncommitted work, a branch, or one commit) or **Scan files**.
+
+## A quick tour
+
+**Triage, ask, fix.** Each finding shows its code and the reviewer's suggestion. Ask Claude about it right there, or let Claude fix it. Every fix gets a second, independent check before it stays in your code.
+
+![A fixed finding with its patch, the checker's verdict, and Claude's answer to "Could this be a false positive?"](docs/screenshots/fix-and-ask.png)
+
+**Fix in batches, safely.** Pick how changes are applied, tell Claude how to fix them, and start on a new branch. Changes the checker isn't sure about wait for you in an approval wizard.
+
+| Fix dialog | Approval wizard |
+|---|---|
+| ![Fix dialog with apply mode, instructions, git state and a new-branch option](docs/screenshots/fix-dialog.png) | ![Approval wizard showing the checker's reasoning and the diff, with Apply and Discard](docs/screenshots/approval-wizard.png) |
+
+**See what changed, then prove it worked.** The Changes tab shows every line the fixes touched, with per-change undo and a one-click commit. Verify fixes re-reviews the fixed files and sorts the results.
+
+| Changes | Verify & compare |
+|---|---|
+| ![Changes tab with per-hunk undo and a generated commit message](docs/screenshots/changes.png) | ![Verification results: resolved, still there, new, still open](docs/screenshots/verify-compare.png) |
+
+**Home, scans and per-project guardrails.**
+
+| Home | Scan & audit | Project guardrails |
+|---|---|---|
+| ![Home page: what needs your attention, recent reviews, weekly usage](docs/screenshots/home.png) | ![Scan page with a folder tree and audit goals](docs/screenshots/scan.png) | ![Project page with protected paths, notes, a check command and learned dismissals](docs/screenshots/project.png) |
 
 ## What you can do
 
