@@ -55,17 +55,26 @@ export async function fileDiff(repo, target, file) {
 // Prefixes every diff line with its new-file line number so the reviewer can
 // cite exact lines instead of counting hunks itself, which is where position
 // drift comes from.
+// File headers (index, ---, +++, mode lines) only appear before a file's first
+// hunk. Inside a hunk every line is content, even a removed "-- comment" that
+// shows up as "--- comment".
 export function annotateDiff(diff) {
   const out = [];
   let newLine = 0;
+  let inHunk = false;
   for (const line of diff.split('\n')) {
+    if (line.startsWith('diff --git')) {
+      inHunk = false;
+      continue;
+    }
     const m = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
     if (m) {
       newLine = Number(m[1]);
+      inHunk = true;
       out.push(line);
       continue;
     }
-    if (/^(diff --git|index |--- |\+\+\+ |new file|deleted file|similarity|rename |old mode|new mode)/.test(line)) continue;
+    if (!inHunk) continue;
     if (line.startsWith('+')) out.push(`${String(newLine++).padStart(5)} + ${line.slice(1)}`);
     else if (line.startsWith('-')) out.push(`      - ${line.slice(1)}`);
     else if (line.startsWith(' ')) out.push(`${String(newLine++).padStart(5)}   ${line.slice(1)}`);
@@ -79,15 +88,21 @@ export function parseDiffForView(diff) {
   const rows = [];
   let oldLine = 0;
   let newLine = 0;
+  let inHunk = false;
   for (const line of diff.split('\n')) {
+    if (line.startsWith('diff --git')) {
+      inHunk = false;
+      continue;
+    }
     const m = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/);
     if (m) {
       oldLine = Number(m[1]);
       newLine = Number(m[2]);
+      inHunk = true;
       rows.push({ t: 'hunk', text: line });
       continue;
     }
-    if (/^(diff --git|index |--- |\+\+\+ |new file|deleted file|similarity|rename |old mode|new mode|\\)/.test(line)) continue;
+    if (!inHunk || line.startsWith('\\')) continue;
     if (line.startsWith('+')) rows.push({ t: 'add', n: newLine++, text: line.slice(1) });
     else if (line.startsWith('-')) rows.push({ t: 'del', o: oldLine++, text: line.slice(1) });
     else if (line.startsWith(' ')) rows.push({ t: 'ctx', o: oldLine++, n: newLine++, text: line.slice(1) });

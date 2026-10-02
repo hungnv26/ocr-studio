@@ -454,7 +454,7 @@ function spawnClaude(job, args, prompt, onEvent) {
   });
 }
 
-function claudeArgs(tools, job, { schema, toolList, permissionMode }) {
+function claudeArgs(tools, job, { schema, toolList, permissionMode, allowedTools }) {
   const argv = [
     '-p',
     '--output-format', 'stream-json',
@@ -471,6 +471,7 @@ function claudeArgs(tools, job, { schema, toolList, permissionMode }) {
   ];
   if (job.engine.effort) argv.push('--effort', job.engine.effort);
   if (schema) argv.push('--json-schema', JSON.stringify(schema));
+  if (allowedTools?.length) argv.push('--allowedTools', ...allowedTools);
   return { bin: tools.claude.path, argv };
 }
 
@@ -869,6 +870,45 @@ function notesBlock(guard) {
   return guard.notes ? `\n\nProject notes from the developer. These override the finding when they conflict:\n<notes>\n${guard.notes}\n</notes>` : '';
 }
 
+const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+const SNAPSHOT_MAX_FILES = 2000;
+const SNAPSHOT_MAX_BYTES = 2_000_000;
+
+// Contents of every file that already differs from HEAD, so an edit the fixer
+// makes outside its target can be put back exactly. Clean files need no copy:
+// HEAD has them.
+async function dirtySnapshot(repo) {
+  const r = await run('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd: repo, timeoutMs: 30_000 });
+  const snap = new Map();
+  const parts = r.stdout.split('\0');
+  for (let i = 0; i < parts.length && snap.size < SNAPSHOT_MAX_FILES; i++) {
+    const e = parts[i];
+    if (!e) continue;
+    const code = e.slice(0, 2);
+    const rel = e.slice(3);
+    // Renames and copies are followed by their source path as a separate entry.
+    if (code[0] === 'R' || code[0] === 'C') i++;
+    try {
+      const abs = path.join(repo, rel);
+      snap.set(rel, fs.existsSync(abs) && fs.statSync(abs).size > SNAPSHOT_MAX_BYTES ? undefined : readOrNull(abs));
+    } catch {
+      snap.set(rel, undefined);
+    }
+  }
+  return snap;
+}
+
+async function baselineFor(repo, snap, rel) {
+  if (snap.has(rel)) return snap.get(rel);
+  const r = await run('git', ['show', `HEAD:${rel}`], { cwd: repo, timeoutMs: 15_000 });
+  return r.code === 0 ? r.stdout : null;
+}
+
+const relInRepo = (repo, p) => {
+  const abs = path.resolve(repo, String(p || ''));
+  return abs.startsWith(path.resolve(repo) + path.sep) ? path.relative(repo, abs) : null;
+};
+
 async function runFix(job, tools, f) {
   if (!job._children) job._children = new Set();
   const round = (job.fixRounds || []).find((r) => r.id === f.fix.round);
@@ -890,8 +930,9 @@ async function runFix(job, tools, f) {
   const abs = path.join(job.repo, f.path);
   const before = readOrNull(abs);
   if (round) backupFile(job, round, f.path);
+  const snapshot = await dirtySnapshot(job.repo);
 
-  const prompt = `Apply a minimal, safe fix for this code review finding. Edit only ${f.path}, and only what the finding needs; keep the existing style. Do not refactor, rename, reorder or "tidy" anything else, do not add comments that narrate the change, and do not run commands.
+  const prompt = `Apply a minimal, safe fix for this code review finding. Edit only ${f.path} (edits to any other file are denied), and only what the finding needs; keep the existing style. Do not refactor, rename, reorder or "tidy" anything else, do not add comments that narrate the change, and do not run commands.
 
 ${findingBrief(f)}${notesBlock(guard)}
 
@@ -904,18 +945,35 @@ Before editing:
    - fixing it would change connection or session lifecycle, callback or delegate ordering, threading, TLS or certificate handling, authentication, keys or tokens, server addresses, persistence, build or deploy configuration, or a public API, and you can't fully verify the effect from the code
 
 Finish with a one-sentence summary of what you changed.`;
-  const args = claudeArgs(tools, job, { schema: null, toolList: 'Read,Edit,Grep,Glob', permissionMode: 'acceptEdits' });
+  // Claude Code itself only allows editing the target file. Permission rules
+  // are glob patterns, so a path with glob characters can't be expressed
+  // literally; those runs fall back to accepting edits and rely on the
+  // stray-edit check below.
+  const literal = !/[*?[\]{}()!\\]/.test(f.path);
+  const args = claudeArgs(tools, job, {
+    schema: null,
+    toolList: 'Read,Edit,Grep,Glob',
+    permissionMode: literal ? 'dontAsk' : 'acceptEdits',
+    allowedTools: literal ? ['Read', 'Grep', 'Glob', `Edit(./${f.path})`] : null,
+  });
+  const edited = new Set();
   const { result, error } = await spawnClaude(job, args, prompt, (ev) => {
     if (ev.type === 'assistant') {
       for (const block of ev.message?.content || []) {
-        if (block.type === 'tool_use') log('tool', block.name === 'Edit' ? `Editing ${f.path}` : describeToolUse(block.name, block.input));
-        else if (block.type === 'text' && block.text.trim()) log('say', block.text.trim());
+        if (block.type === 'tool_use') {
+          if (EDIT_TOOLS.has(block.name)) {
+            const rel = relInRepo(job.repo, block.input?.file_path || block.input?.notebook_path);
+            if (rel) edited.add(rel);
+          }
+          log('tool', block.name === 'Edit' ? `Editing ${relInRepo(job.repo, block.input?.file_path) || f.path}` : describeToolUse(block.name, block.input));
+        } else if (block.type === 'text' && block.text.trim()) log('say', block.text.trim());
       }
     } else if (ev.type === 'result') {
       job.stats.costUsd += ev.total_cost_usd || 0;
     }
   });
   f.fix.summary = result?.result || '';
+  await undoStrayEdits(job, f, edited, snapshot, result, log);
   const after = readOrNull(abs);
   if (error && !result) {
     if (after !== before && before != null) fs.writeFileSync(abs, before);
@@ -946,9 +1004,53 @@ Finish with a one-sentence summary of what you changed.`;
     if (before == null) fs.rmSync(abs, { force: true });
     else fs.writeFileSync(abs, before);
   } else {
-    await applyPatch(job, f.fix.diff, true);
+    const r = await applyPatch(job, f.fix.diff, true);
+    if (r.code !== 0) {
+      // The file changed again while the checker ran. The edit is still on
+      // disk, so say so rather than presenting it as an untouched proposal.
+      f.fix.status = 'failed';
+      f.fix.error = `The ${f.fix.verdict.verdict === 'wrong' ? 'rejected' : 'unapproved'} change could not be taken back out because ${f.path} changed in the meantime, so it is still in the file. Use “Undo whole batch” to restore it. (${r.stderr.trim().split('\n')[0]})`;
+      return;
+    }
   }
   f.fix.status = f.fix.verdict.verdict === 'wrong' ? 'rejected' : 'proposed';
+}
+
+// Puts back any file the fixer edited other than its target. Edits Claude
+// Code denied never reached the disk and need nothing.
+async function undoStrayEdits(job, f, edited, snapshot, result, log) {
+  const denied = new Set((result?.permission_denials || []).map((d) => relInRepo(job.repo, d.tool_input?.file_path || d.tool_input?.notebook_path)).filter(Boolean));
+  const strays = [];
+  for (const rel of edited) {
+    if (rel === f.path || denied.has(rel)) continue;
+    const abs = path.join(job.repo, rel);
+    // Another fix in this review owns that file right now; reverting would
+    // destroy its work, so only report it.
+    if (job._fixLocks?.has(rel)) {
+      strays.push({ path: rel, restored: false });
+      continue;
+    }
+    const base = await baselineFor(job.repo, snapshot, rel);
+    if (base === undefined) {
+      strays.push({ path: rel, restored: false });
+      continue;
+    }
+    if (readOrNull(abs) === base) continue;
+    if (base == null) fs.rmSync(abs, { force: true });
+    else fs.writeFileSync(abs, base);
+    strays.push({ path: rel, restored: true });
+  }
+  if (!strays.length) return;
+  f.fix.strays = strays;
+  const restored = strays.filter((s) => s.restored).map((s) => s.path);
+  const kept = strays.filter((s) => !s.restored).map((s) => s.path);
+  log('step', `Claude also edited ${strays.map((s) => s.path).join(', ')}${restored.length ? `; put back ${restored.join(', ')}` : ''}`);
+  f.fix.warning = [
+    restored.length ? `Claude also edited ${restored.join(', ')}. Only ${f.path} may change, so ${restored.length === 1 ? 'that edit was' : 'those edits were'} undone.` : '',
+    kept.length ? `Claude also edited ${kept.join(', ')} and it could not be restored automatically; check ${kept.length === 1 ? 'it' : 'them'} by hand.` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 async function verifyPatch(job, tools, f, guard, log, alreadyApplied) {
@@ -1294,7 +1396,9 @@ export async function revertHunk(jobId, rel, index) {
   const hunks = splitHunks(patch);
   const h = hunks[Number(index)];
   if (!h) throw Object.assign(new Error('That change no longer exists. Refresh the list.'), { status: 409 });
-  const header = patch.split('\n').filter((l) => /^(diff --git|--- |\+\+\+ )/.test(l)).join('\n');
+  const lines = patch.split('\n');
+  const firstHunk = lines.findIndex((l) => l.startsWith('@@'));
+  const header = lines.slice(0, firstHunk < 0 ? lines.length : firstHunk).filter((l) => /^(diff --git|--- |\+\+\+ )/.test(l)).join('\n');
   const r = await applyPatch(job, `${header}\n${h.text}\n`, true);
   if (r.code !== 0) throw new Error(`Could not undo that change: ${r.stderr.trim().split('\n')[0]}`);
   // A fix whose patch can be applied again (but not reversed) is no longer in

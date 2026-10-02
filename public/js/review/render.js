@@ -28,16 +28,24 @@ export function renderPatch(diff, path, { hunkActions = null } = {}) {
   let o = 0;
   let n = 0;
   let hunk = -1;
+  let inHunk = false;
   for (const line of lines) {
-    if (/^(diff --git|index |--- |\+\+\+ |new file|deleted file|\\)/.test(line)) continue;
+    // Headers only come before a file's first hunk; inside one, a line like
+    // "--- x" is a removed "-- x", not a header.
+    if (line.startsWith('diff --git')) {
+      inHunk = false;
+      continue;
+    }
     const m = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/);
     if (m) {
       o = Number(m[1]);
       n = Number(m[2]);
       hunk++;
+      inHunk = true;
       rows.push({ t: 'hunk', text: line, hunk });
       continue;
     }
+    if (!inHunk || line.startsWith('\\')) continue;
     if (!line && rows.length && lines[lines.length - 1] === line) continue;
     if (line.startsWith('+')) {
       rows.push({ t: 'add', n: n++, side: 'new', i: newSide.length });
@@ -112,6 +120,7 @@ export function fixBox(f) {
             : '';
   return `<div class="fixbox ${fx.status}"><div class="row wrap">${label}<span class="grow"></span>${actions}</div>
     ${fx.instructions ? `<div class="muted" style="margin-top:6px">${icon('chat', 12)} Your instructions: ${esc(fx.instructions)}</div>` : ''}
+    ${fx.warning ? `<div class="verdict risky"><b>⚠️ Outside its file:</b> ${esc(fx.warning)}</div>` : ''}
     ${verdictBox}
     ${['running', 'checking', 'unchanged', 'failed'].includes(fx.status) ? log : ''}
     ${fx.error ? `<div class="muted" style="margin-top:6px">${esc(fx.error.slice(0, 400))}</div>` : ''}
