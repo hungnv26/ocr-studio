@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OCR Studio</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23d9622b'/><text x='16' y='21' font-family='Arial' font-weight='800' font-size='12' fill='white' text-anchor='middle'>OCR</text></svg>" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/app2.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <a class="brand" href="#/">
+          <div class="brand-mark">OCR</div>
+          <div><b>OCR Studio</b><small>Open Code Review × Claude</small></div>
+        </a>
+        <div id="switcher" class="switcher"></div>
+        <div class="nav-label">Tools</div>
+        <nav class="nav" id="nav"></nav>
+        <div class="side-bottom">
+          <div id="look" class="look"></div>
+          <div class="side-status" id="side-status"></div>
+        </div>
+      </aside>
+      <main class="main" id="view"></main>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
