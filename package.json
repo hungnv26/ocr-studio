@@ -1,6 +1,6 @@
 {
   "name": "ocr-studio",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "A local web app for Open Code Review that uses Claude Code as the reviewer: triage findings, fix them safely, and verify the fixes.",
   "license": "MIT",
@@ -10,7 +10,14 @@
     "type": "git",
     "url": "git+https://github.com/hungnv26/ocr-studio.git"
   },
-  "keywords": ["code-review", "claude", "claude-code", "open-code-review", "ai", "static-analysis"],
+  "keywords": [
+    "code-review",
+    "claude",
+    "claude-code",
+    "open-code-review",
+    "ai",
+    "static-analysis"
+  ],
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
